@@ -49,6 +49,7 @@ char* readFile(const char *filePath) {
 
     return buffer;
 }
+
 char* readfile(char* path) {
     FILE* ptr = fopen("test.txt", "a+");
     if (NULL == ptr) {
@@ -153,6 +154,68 @@ int authenticate_pubkey(ssh_session session, const char* username) {
     return rc;
 }
 
+int sftp_read_sync(ssh_session session) {
+    sftp_session sftp;
+    int rc, nwritten;
+ 
+    sftp = sftp_new(session);
+    if (sftp == NULL) {
+        fprintf(stderr, "Error allocating SFTP session: %s\n", ssh_get_error(session));
+        return SSH_ERROR;
+    }
+ 
+    rc = sftp_init(sftp);
+    if (rc != SSH_OK) {
+        fprintf(stderr, "Error initializing SFTP session: code %d.\n", sftp_get_error(sftp));
+        sftp_free(sftp);
+        return rc;
+    }
+
+    int access_type;
+    sftp_file file;
+    char buffer[16384];
+    int nbytes;
+    int fd;
+ 
+    access_type = O_RDONLY;
+    file = sftp_open(sftp, "/root/helloworld/helloworld.txt", access_type, 0);
+    if (file == NULL) {
+        fprintf(stderr, "Can't open file for reading: %s\n", ssh_get_error(session));
+        return SSH_ERROR;
+    }
+ 
+    fd = open("tmp1.txt", O_CREAT);
+    if (fd < 0) {
+        // fprintf(stderr, "Can't open file for writing: %s\n", strerror(0));
+        return SSH_ERROR;
+    }
+
+    for (;;) {
+        nbytes = sftp_read(file, buffer, sizeof(buffer));
+        if (nbytes == 0) {
+            break; // EOF
+        } else if (nbytes < 0) {
+            fprintf(stderr, "Error while reading file: %s\n", ssh_get_error(session));
+            sftp_close(file);
+            return SSH_ERROR;
+        }
+ 
+        nwritten = write(fd, buffer, nbytes);
+        if (nwritten != nbytes) {
+            // fprintf(stderr, "Error writing: %s\n", strerror(errno));
+            sftp_close(file);
+            return SSH_ERROR;
+        }
+    }
+ 
+    rc = sftp_close(file);
+    if (rc != SSH_OK) {
+        fprintf(stderr, "Can't close the read file: %s\n", ssh_get_error(session));
+        return rc;
+    }
+    sftp_free(sftp);
+    return SSH_OK;
+}
 
 int main() {
     ssh_session session;
@@ -205,6 +268,7 @@ int main() {
     }
 
     sftp_helloworld(session, "tmp.txt", "helloworld.txt", "/root/helloworld");
+    sftp_read_sync(session);
 
     // Close channel
     ssh_channel_send_eof(channel);
