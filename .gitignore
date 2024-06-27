@@ -1,0 +1,5 @@
+*.out
+*.o
+tmp2.c
+tmp3.c
+*.txt
