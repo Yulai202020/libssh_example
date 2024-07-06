@@ -44,7 +44,7 @@ int main() {
     }
 
     // Request reverse remote port forwarding on the server
-    rc = ssh_channel_open_forward(channel, "192.168.100.37", 8080, "192.168.100.37", 8000);
+    rc = ssh_channel_open_forward(channel, "localhost", 8080, "localhost", 8000);
     if (rc != SSH_OK) {
         error(session);
     }
